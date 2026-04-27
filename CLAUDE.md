@@ -1,4 +1,4 @@
-# Project :: Tempalte MIsc
+# Project :: Template MIsc
 
 This repo holds reusable, battle-tested template files that get copied into other projects. It is not itself a buildable project — treat the contents as source material to be adapted, not as code to run from here.
 
