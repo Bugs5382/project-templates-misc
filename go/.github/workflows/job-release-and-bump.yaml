@@ -1,0 +1,120 @@
+name: Version Manager
+
+on:
+  workflow_dispatch:
+  workflow_call:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+  packages: write
+  id-token: write
+
+jobs:
+  Update_On_Main:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3.1.1
+        with:
+          client-id: ${{ vars.APP_CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: 📂 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: ./go.mod
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release Drafter (Anticipate Version)
+        id: drafter
+        uses: release-drafter/release-drafter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Release Version
+        run: |
+          task update-version NEW_VERSION=v${{ steps.drafter.outputs.resolved_version }}
+
+      - name: 📤 Changelog Action
+        uses: Bugs5382/changelog-updater-action@v0.3.2
+        env:
+          LOG_LEVEL: debug
+          LOG_FORMAT: text
+          RELEASE_NOTES: >-
+            ${{ steps.drafter.outputs.body }}
+          RELEASE_VERSION: v${{ steps.drafter.outputs.resolved_version }}
+        with:
+          tag: ${{ env.RELEASE_VERSION }}
+          notes: ${{ env.RELEASE_NOTES }}
+          diff: 'true'
+
+      - name: Commit and Push Version Update
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "chore(pre-release): v${{ steps.drafter.outputs.resolved_version }} [skip ci]"
+
+  Build_and_Release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.x'
+          cache: true
+
+      - name: Build Binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          BINARY_NAME="bin/golic-${{ matrix.goos }}-${{ matrix.goarch }}"
+          if [ "${{ matrix.goos }}" = "windows" ]; then BINARY_NAME="${BINARY_NAME}.exe"; fi
+          go build -v \
+            -o "$BINARY_NAME" \
+            -ldflags "-s -w -X 'internal/build.Version=${{ github.event.release.tag_name }}' -X 'internal/build.Gitsha=${{ github.sha }}' -extldflags '-static'" \
+            ./cmd/golic
+
+      - name: Upload Binary to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: bin/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
