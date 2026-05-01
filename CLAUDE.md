@@ -46,3 +46,10 @@ When applying these templates to a new project, also:
 - Verify CODEOWNERS matches the new project's reviewers.
 - Reconcile the husky hooks with the project's actual lint/test commands.
 - **Ensure a non-git-tracked `plan/` folder exists** at the project root (add `plan/` to `.gitignore` if missing). This folder stores pending Claude issues/notes as individual files. When an issue is resolved, **delete** its file — the file's existence is the signal that work is still open. Treat existing files in `plan/` as open issues worth surfacing when relevant.
+
+## Commit rules
+
+When committing on behalf of the user:
+
+- **Never commit to `main`** (or `master`). Only commit to the user's currently checked-out working/feature branch. If the current branch is `main`, stop and ask the user to switch or create a branch first.
+- **Do not include Claude attribution** in commit messages. No `Co-Authored-By: Claude ...` trailer, no "Generated with Claude Code" footer, no mention of Claude/Anthropic anywhere in the message.
