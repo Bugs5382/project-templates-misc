@@ -45,3 +45,4 @@ When applying these templates to a new project, also:
 - **Create an appropriate `.github/ISSUE_TEMPLATE/` folder** for that project (bug report, feature request, etc.). Issue templates are intentionally not stored here because they should be tailored to each project's domain and workflow.
 - Verify CODEOWNERS matches the new project's reviewers.
 - Reconcile the husky hooks with the project's actual lint/test commands.
+- **Ensure a non-git-tracked `plan/` folder exists** at the project root (add `plan/` to `.gitignore` if missing). This folder stores pending Claude issues/notes as individual files. When an issue is resolved, **delete** its file — the file's existence is the signal that work is still open. Treat existing files in `plan/` as open issues worth surfacing when relevant.
